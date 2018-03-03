@@ -41,11 +41,11 @@ void * myallocate(int size, char *  file, int line, int type){
 
   mb* frnt = (mb*) &mem[front]; // Strucures front
   if((*frnt).nextBlock == NULL){ //If there's only one block of memory in the list
+    printf("0\n");
     if((*frnt).size + 2*METASIZE + size - 1 < ARRSIZE){ //If the size of both fits in memory
       recentMal = front+(*frnt).size+METASIZE; //Go RIGHT AFTER the first (front) block
-      (*frnt).nextBlock = (void *) &mem[recentMal]; //Front should point the block to the next block
-
-      return createMeta(recentMal, size, NULL); //Create that
+      (*frnt).nextBlock = (void *) &mem[front+(*frnt).size+METASIZE]; //Front should point the block to the next block
+      return createMeta(front+(*frnt).size+METASIZE, size, NULL); //Create that
     }
 
     //Otherwise - Send an error
@@ -61,13 +61,17 @@ void * myallocate(int size, char *  file, int line, int type){
 
   while((*curr).nextBlock != NULL){ //We're looking between two Chunks -- EXCEPT LAST TWO
     // printf("1\n");
-    if(prevLoc + (*prev).size + 2*METASIZE + size - 1 < (*curr).size){ //If it fits between them
+    printf("prevLoc:%d\t",prevLoc);
+    printf("currLoc:%d\t",currLoc);
+
+    printf("Less than (*curr).size%d\n",(*curr).size);
+    if(prevLoc + (*prev).size + 2*METASIZE + size - 1 < currLoc){ //If it fits between them
       (*prev).nextBlock = (void *)&mem[prevLoc + (*prev).size + METASIZE];
       recentMal = prevLoc + (*prev).size + METASIZE;
       return createMeta(prevLoc + (*prev).size + METASIZE, size, curr);
     }
 
-    //Increment tracking variables
+    //Increment tracking variable
     prev = curr;
     prevLoc = (*prev).loc;
     curr = (mb*) (*prev).nextBlock;
@@ -142,119 +146,4 @@ void * mydeallocate(void * freeThis, char * file, int line, int type){
 
   fprintf(stderr, "ERROR: Pointer was not malloced - File: %s, Line: %d\n", file, line);
   return;
-}
-
-
-int randomC(int * mall, int * freed){
-  if(*mall == 1000){ //If we've malloced a total of 1000 already
-    *freed += 1;
-    return 0;
-  }
-  if(*freed == *mall){ //If we've freed everything we've malloced
-    *mall += 1;
-    return 1;
-  }
-
-  int r = rand() % 2; //Get a random number, 0 or 1
-
-  if(r == 1) //If one, we're going to malloc so increase the counter
-    *(mall) += 1;
-  else      //If zero, we're going to free so increase the counter
-    *(freed) += 1;
-
-  return r; //Return the random number
-}
-
-int main(int argc, char * argv[]){
-  // //Test 1
-	// char * ptr[50];
-  //
-  // int i = 0;
-  // for(i = 0; i < 50; i=i+2){
-  //   ptr[i] = malloc(80);
-  //   ptr[i+1] = malloc(81);
-  //
-  //   free(ptr[i]);
-  //   free(ptr[i+1]);
-  // }
-  // if(front == -1)
-  //   printf("Success\n");
-
-  // Test 2
-  // char * ptr[50];
-  //
-  // int i = 0;
-  // for(i = 0; i < 50; i=i+2){
-  //   ptr[i] = malloc(80);
-  //   free(ptr[i]);
-  //   ptr[i+1] = malloc(81);
-  //   free(ptr[i+1]);
-  // }
-  //
-  // if(front == -1)
-  //   printf("Success\n");
-
-
-  // //Test 3
-  // char * ptrs[1000]; //Track up to 1000 pointers at once
-  //
-  // int i = 0; //Malloc 1 byte 1000 times
-  // for(;i < 200; i++){
-  //   ptrs[i] = malloc(100);
-  //   if(ptrs[i] == NULL) //If malloc failed
-  //     return 1;
-  // }
-  //
-  // i = 0; //Free 1000 bytes
-  // for(;i < 200; i++){
-  //   free(ptrs[i]);
-  // }
-  // if(front == -1)
-  //   printf("Success\n");
-
-  // //Test 4
-  // char * ptr;
-  //
-  // int i = 0;
-  // for(;i < 1000; i++){ //Malloc  1 byte and free - 1000 times
-  //   ptr = malloc(1);
-  //   if(ptr == NULL) //If malloc failed
-  //     return 1;
-  //   free(ptr);
-  //   if(front == -1)
-  //     printf("Success\n");
-  // }
-
-  // //Test 5
-  // char * ptrs[1000];  //Array of pointers to malloced stuff
-  // int mall = 0;       //# of times malloc was called
-  // int freed = 0;      //# of times free was called
-  // int top = -1;       //Current index of what to free next (If need be)
-  //
-  // //Randomly Choose (2000 total - 1000 free, 1000 malloc)
-  // int i = 0;
-  // for(;i < 2000; i++){
-  //     switch(randomC(&mall, &freed)){ //Determine which to do
-  //       case 0: //Free
-  //         free(ptrs[top]);
-  //         top--;
-  //         break;
-  //
-  //       case 1: //Malloc
-  //         top++;
-  //         ptrs[top] = malloc(1);
-  //         if(ptrs[top] == NULL) //If malloc failed
-  //           printf("\n\nMallocation failed\n\n");
-  //            return 0;
-  //         break;
-  //
-  //       default:
-  //         return 1; //THIS SHOULD NEVER HAPPEN
-  //     }
-  // }
-  //
-  // if(front == -1)
-  //   printf("Success\n");
-
-	return 0;
 }
