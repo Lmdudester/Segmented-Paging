@@ -187,6 +187,8 @@ char * ptrs[1000];  //Array of pointers to malloced stuff
          break;
      }
    }
+   if(front == -1)
+     printf("Success\n");
 }
 
 void testG(){
@@ -238,10 +240,11 @@ void testG(){
   ptr[5] = malloc(63);
   ptr[6] = malloc(2);
   ptr[7] = malloc(61);
-  printf("New Test G\n");
+
+  //There seemed to be a bug, thus this randomly generated ptr was formed. Fixed the bug
 }
 int main(int argc, char * argv[]){
-  testF();
+  testG();
 
 	return 0;
 }
