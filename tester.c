@@ -1,4 +1,4 @@
-#include "SegPage.c"
+#include "SegPage_t.h"
 
 int randomE(int * mall, int * freed){
   if(*mall == 1000){ //If we've malloced a total of 1000 already
@@ -28,35 +28,49 @@ void testA(){
   for(i = 0; i < 50; i=i+2){
     ptr[i] = malloc(80);
     ptr[i+1] = malloc(81);
+  }
 
+  for(i = 0; i < 50; i=i+2){
     free(ptr[i]);
     free(ptr[i+1]);
   }
-  if(front == -1)
-    printf("Success\n");
+  if(front == NULL)
+    printf("Test A - Success\n");
 }
 
 void testB(){
   // Test 2
   char * ptr[50];
 
+  char * last80;
+  char * first81;
+
   int i = 0;
   for(i = 0; i < 50; i=i+2){
     ptr[i] = malloc(80);
-    free(ptr[i]);
+    last80 = ptr[i];
+
     ptr[i+1] = malloc(81);
+    if(i == 0)
+      first81 = ptr[1];
+
+    free(ptr[i]);
+    //free(ptr[i+1]);
+  }
+
+  for(i = 0; i < 50; i=i+2){
     free(ptr[i+1]);
   }
 
-  if(front == -1)
-    printf("Success\n");
+  if(front == NULL && last80 < first81)
+    printf("Test B - Success\n");
 }
 
 void testC(){
   //Test 3
-  char * ptrs[1000]; //Track up to 1000 pointers at once
+  char * ptrs[200]; //Track up to 1000 pointers at once
 
-  int i = 0; //Malloc 1 byte 1000 times
+  int i = 0; //Malloc 100 byte 200 times
   for(;i < 200; i++){
     ptrs[i] = malloc(100);
     if(ptrs[i] == NULL) //If malloc failed
@@ -67,8 +81,8 @@ void testC(){
   for(;i < 200; i++){
     free(ptrs[i]);
   }
-  if(front == -1)
-    printf("Success\n");
+  if(front == NULL)
+    printf("Test C - Success\n");
 }
 
 void testD(){
@@ -80,10 +94,14 @@ void testD(){
     ptr = malloc(1);
     if(ptr == NULL) //If malloc failed
       return;
+
     free(ptr);
-    if(front == -1)
-      printf("Success\n");
+    if(front != NULL)
+      return;
   }
+
+  if(front == NULL)
+    printf("Test D - Success\n");
 }
 
 void testE(){
@@ -118,7 +136,7 @@ void testE(){
       }
   }
 
-  if(front == -1)
+  if(front == NULL)
     printf("Success\n");
 }
 
@@ -158,8 +176,9 @@ int randomF(int * mall, int * freed, int * taken){
 
   return r;
 }
+
 void testF(){
-char * ptrs[1000];  //Array of pointers to malloced stuff
+ char * ptrs[1000];  //Array of pointers to malloced stuff
  int mall = 0;       //# of times malloc was called
  int freed = 0;      //# of times free was called
  int taken = 0;      //# of bytes currently malloced
@@ -187,63 +206,68 @@ char * ptrs[1000];  //Array of pointers to malloced stuff
          break;
      }
    }
-   if(front == -1)
+   if(front == NULL)
      printf("Success\n");
 }
 
 void testG(){
-  char *ptr[100];
-  printf("Start:Test G\n");
-  ptr[0] = malloc(40);
-  ptr[1] = malloc(7);
-  ptr[2] = malloc(52);
-  free(ptr[2]);
-  ptr[2] = malloc(45);
-  free(ptr[2]);
-  free(ptr[1]);
-  ptr[1] = malloc(60);
-  free(ptr[1]);
-  free(ptr[0]);
-  ptr[0] = malloc(57);
-  free(ptr[0]);
-  ptr[0] = malloc(40);
-  free(ptr[0]);
-  ptr[0] = malloc(27);
-  ptr[1] = malloc(47);
-  ptr[2] = malloc(52);
-  free(ptr[2]);
-  free(ptr[1]);
-  ptr[1] = malloc(14);
-  free(ptr[1]);
-  free(ptr[0]);
-  ptr[0] = malloc(38);
-  ptr[1] = malloc(30);
-  free(ptr[1]);
-  free(ptr[0]);
-  ptr[0] = malloc(21);
-  free(ptr[0]);
-  ptr[0] = malloc(14);
-  ptr[1] = malloc(7);
-  free(ptr[1]);
-  free(ptr[0]);
-  ptr[0] = malloc(21);
-  free(ptr[0]);
-  ptr[0] = malloc(14);
-  ptr[1] = malloc(7);
-  free(ptr[1]);
-  free(ptr[0]);
-  ptr[0] = malloc(3);
-  ptr[1] = malloc(53);
-  ptr[2] = malloc(34);
-  ptr[3] = malloc(29);
-  ptr[4] = malloc(49);
-  ptr[5] = malloc(63);
-  ptr[6] = malloc(2);
-  ptr[7] = malloc(61);
+  int * i1 = malloc(sizeof(int));
+  *i1 = 5;
 
-  //There seemed to be a bug, thus this randomly generated ptr was formed. Fixed the bug
+  char * c1 = malloc(sizeof(char));
+  *c1 = 'a';
+
+  if(*i1 != 5)
+    return;
+
+  *i1 = 6;
+
+  short * s1 = malloc(sizeof(short));
+  *s1 = 17;
+
+  if(*i1 != 6 || *c1 != 'a')
+    return;
+
+  *i1 = 1;
+  *c1 = 'b';
+  *s1 = 18;
+
+  if(*i1 != 1 || *c1 != 'b' || *s1 != 18)
+    return;
+
+  free(c1);
+
+  int * i2 = malloc(sizeof(int));
+  *i2 = 2;
+
+  if(*i1 != 1 || *s1 != 18)
+    return;
+
+  free(s1);
+
+  char * c2 = malloc(sizeof(char));
+  char * c3 = malloc(sizeof(char));
+  *c2 = 'e';
+  *c3 = 'f';
+
+  if(*i1 != 1 || *i2 != 2 || *c2 != 'e' || *c3 != 'f')
+    return;
+
+  free(i1);
+  free(i2);
+  free(c2);
+  free(c3);
+
+  if(front == NULL)
+    printf("Test G - Success\n");
 }
+
 int main(int argc, char * argv[]){
+  testA();
+  testB();
+  testC();
+  testD();
+
   testG();
 
 	return 0;
