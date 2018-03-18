@@ -20,7 +20,7 @@ tcbNode * completed = NULL;
 tcbNode * currCtxt = NULL;
 
 // For threadID generation
-my_pthread_t idCount = 1;
+my_pthread_t idCount = 2;
 
 // For Maintenance Cycle decisions
 int numMaintain = 0;
@@ -302,7 +302,7 @@ int my_pthread_create(my_pthread_t * thread, pthread_attr_t * attr, void *(*func
 		sigAct.sa_flags = 0;
 		sigaction(T_SIG, &sigAct, NULL);
 
-		currCtxt = malloc(sizeof(tcbNode));
+		currCtxt = myallocate(sizeof(tcbNode), __FILE__, __LINE__, LIBRARYREQ);
 		if(currCtxt == NULL){
 			//ERROR
 			return -1;
@@ -316,13 +316,14 @@ int my_pthread_create(my_pthread_t * thread, pthread_attr_t * attr, void *(*func
 		(*currCtxt).data.ret = NULL;
 		(*currCtxt).data.w_mutex = NULL;
 		(*currCtxt).data.w_tID = 0;
+		(*currCtxt).data.front = NULL;
 
 		// Create ucontext
 		getcontext(&(*currCtxt).data.ctxt);
 	}
 
 	// Reguardless, create new thread and add to running list
-	tcbNode * newNode = malloc(sizeof(tcbNode));
+	tcbNode * newNode = myallocate(sizeof(tcbNode), __FILE__, __LINE__, LIBRARYREQ);
 	if(newNode == NULL){
 		//ERROR
 		return -1;
@@ -336,13 +337,14 @@ int my_pthread_create(my_pthread_t * thread, pthread_attr_t * attr, void *(*func
 	(*newNode).data.ret = NULL;
 	(*newNode).data.w_mutex = NULL;
 	(*newNode).data.w_tID = 0;
+	(*newNode).data.front = NULL;
 
 	*thread = (*newNode).data.tID; // Give tID back to user
 
 	//Create ucontext
 	getcontext(&(*newNode).data.ctxt);
 	(*newNode).data.ctxt.uc_link = 0;
- 	(*newNode).data.ctxt.uc_stack.ss_sp = malloc(STKSZE);
+ 	(*newNode).data.ctxt.uc_stack.ss_sp = myallocate(STKSZE, __FILE__, __LINE__, LIBRARYREQ);
  	(*newNode).data.ctxt.uc_stack.ss_size = STKSZE;
  	(*newNode).data.ctxt.uc_stack.ss_flags = 0;
 
@@ -385,7 +387,8 @@ int my_pthread_join(my_pthread_t thread, void **value_ptr) {
 	}
 
 	(*value_ptr) = (*joinable).data.ret; // Get return value
-	free(joinable); // Free the allocated space
+	mydeallocate((*joinable).data.ctxt.uc_stack.ss_sp, __FILE__, __LINE__, LIBRARYREQ);
+	mydeallocate(joinable, __FILE__, __LINE__, LIBRARYREQ); // Free the allocated space
 
 	//dequipMask(); // Take down sigprocmask
 	return 0;

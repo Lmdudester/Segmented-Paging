@@ -6,9 +6,10 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <malloc.h>
 
-#define THREADREQ 0
-#define LIBRARYREQ 1
+#define THREADREQ 1
+#define LIBRARYREQ 0
 
 #define malloc(x) myallocate(x, __FILE__, __LINE__, THREADREQ) //x is a size
 #define free(x) mydeallocate(x, __FILE__, __LINE__, THREADREQ) //x is a pointer
@@ -18,6 +19,8 @@
 #define METASIZE sizeof(struct metaBlock)
 //So far, the metadata size is 16 in factory.cs.rutgers.edu
 
+#define PAGE_SIZE sysconf( _SC_PAGE_SIZE)
+
 
 /*Structure for Malloc*/
 typedef struct metaBlock {
@@ -25,7 +28,12 @@ typedef struct metaBlock {
   int size;
 } mb;
 
-mb * front;
+#include "my_pthread_t.h"
+
+typedef struct pageInfo {
+  uint tid;
+  uint index;
+} pageInfo;
 
 // ____myallocate____
 void * myallocate(int size, char *  file, int line, int type);

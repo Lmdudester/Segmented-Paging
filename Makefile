@@ -20,8 +20,8 @@ SegPage.o: SegPage_t.h
 SegTester: SegPage.o
 	$(CC) tester.c SegPage.o
 
-practice:
-	$(CC) practice.c
+practice: practice.c my_pthread.a SegPage.a
+	$(CC) practice.c -L. $(LDFLAGS) -o practice
 
 
 # my_pthread
@@ -66,4 +66,4 @@ Test8: ./Tests/Test8.c my_pthread.a
 
 # Cleanup
 clean:
-	rm -rf Test[0-9]* testfile *.o *.a *.out
+	rm -rf Test[0-9]* testfile practice *.o *.a *.out

@@ -19,6 +19,7 @@
 #include <stdlib.h>
 #include <ucontext.h>
 #include <sys/time.h>
+#include "SegPage_t.h"
 
 #define USE_MY_PTHREAD //(comment this line if you want to use real pthread)
 
@@ -47,7 +48,7 @@ typedef enum State_
 #define WHICH ITIMER_REAL
 #define	T_SIG SIGALRM
 
-#define STKSZE 1024*64
+#define STKSZE 1024*2 //#define STKSZE 1024*64 
 #define MAINTAIN 10
 
 #define Q1_MSECS 25
@@ -76,6 +77,7 @@ typedef struct threadControlBlock {
   int qNum; // The number of the prev queue this thread was in
   State stat; // Current status of the thread
   void * ret; // Pointer to return value
+	mb * front;
 } tcb;
 
 // tcb Node definition
@@ -102,6 +104,11 @@ my_pthread_t idCount;
 int numMaintain;
 
 /* Function Declarations: */
+
+/* HELPER FUNCTIONS */
+struct itimerval disableTimer();
+
+void scheduler(int signum);
 
 /* create a new thread */
 int my_pthread_create(my_pthread_t * thread, pthread_attr_t * attr, void *(*function)(void*), void * arg);
