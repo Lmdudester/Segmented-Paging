@@ -48,7 +48,7 @@ typedef enum State_
 #define WHICH ITIMER_REAL
 #define	T_SIG SIGALRM
 
-#define STKSZE 1024*2 //#define STKSZE 1024*64 
+#define STKSZE 1024*4 //#define STKSZE 1024*64
 #define MAINTAIN 10
 
 #define Q1_MSECS 25
@@ -77,7 +77,6 @@ typedef struct threadControlBlock {
   int qNum; // The number of the prev queue this thread was in
   State stat; // Current status of the thread
   void * ret; // Pointer to return value
-	mb * front;
 } tcb;
 
 // tcb Node definition

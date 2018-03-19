@@ -7,6 +7,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <malloc.h>
+#include <sys/mman.h>
 
 #define THREADREQ 1
 #define LIBRARYREQ 0
@@ -16,11 +17,17 @@
 
 #define ARRSIZE 1024*1024*8
 
+#define PAGE_SIZE sysconf( _SC_PAGE_SIZE)
+
+#define TOTAL_PAGES 2048
+#define THREAD_PAGES 1024
+#define TABLE_PAGES 4
+#define LIB_PAGES 1020
+
 #define METASIZE sizeof(struct metaBlock)
 //So far, the metadata size is 16 in factory.cs.rutgers.edu
 
-#define PAGE_SIZE sysconf( _SC_PAGE_SIZE)
-
+char isLib;
 
 /*Structure for Malloc*/
 typedef struct metaBlock {
@@ -33,7 +40,10 @@ typedef struct metaBlock {
 typedef struct pageInfo {
   uint tid;
   uint index;
+  mb * front;
 } pageInfo;
+
+void printPT(int howMany);
 
 // ____myallocate____
 void * myallocate(int size, char *  file, int line, int type);

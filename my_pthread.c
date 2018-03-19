@@ -206,8 +206,6 @@ void scheduler(int signum){
 		return;
 	}
 
-	//printf("C: %d -> %d (q1 - %d, q2 - %d, q3 - %d, exit - %d) \n", (*currCtxt).data.tID, (*nextProc).data.tID,  q1, q2, q3, completed);
-
 	/* Decide which queue to send current cTxt to */
 	switch((*currCtxt).data.stat){
 		case P_RUN:
@@ -265,6 +263,8 @@ void scheduler(int signum){
 	else // q3
 		timer.it_value.tv_usec = Q3_MSECS;
 
+	protectAll();
+
 	setitimer(WHICH, &timer, NULL);
 
 	/* Drop sigmask */
@@ -294,7 +294,7 @@ int my_pthread_yield() {
 
 /* create a new thread */
 int my_pthread_create(my_pthread_t * thread, pthread_attr_t * attr, void *(*function)(void*), void * arg) {
-	disableTimer();
+	struct itimerval res = disableTimer();
 
 	if(currCtxt == NULL) { // First time any my_pthread function has been evoked (so store main)
 		struct sigaction sigAct;
@@ -305,6 +305,7 @@ int my_pthread_create(my_pthread_t * thread, pthread_attr_t * attr, void *(*func
 		currCtxt = myallocate(sizeof(tcbNode), __FILE__, __LINE__, LIBRARYREQ);
 		if(currCtxt == NULL){
 			//ERROR
+			setitimer(WHICH, &res, NULL); // RESUME TIMER
 			return -1;
 		}
 		(*currCtxt).next = NULL;
@@ -316,7 +317,6 @@ int my_pthread_create(my_pthread_t * thread, pthread_attr_t * attr, void *(*func
 		(*currCtxt).data.ret = NULL;
 		(*currCtxt).data.w_mutex = NULL;
 		(*currCtxt).data.w_tID = 0;
-		(*currCtxt).data.front = NULL;
 
 		// Create ucontext
 		getcontext(&(*currCtxt).data.ctxt);
@@ -326,6 +326,7 @@ int my_pthread_create(my_pthread_t * thread, pthread_attr_t * attr, void *(*func
 	tcbNode * newNode = myallocate(sizeof(tcbNode), __FILE__, __LINE__, LIBRARYREQ);
 	if(newNode == NULL){
 		//ERROR
+		setitimer(WHICH, &res, NULL); // RESUME TIMER
 		return -1;
 	}
 	(*newNode).next = NULL;
@@ -337,7 +338,6 @@ int my_pthread_create(my_pthread_t * thread, pthread_attr_t * attr, void *(*func
 	(*newNode).data.ret = NULL;
 	(*newNode).data.w_mutex = NULL;
 	(*newNode).data.w_tID = 0;
-	(*newNode).data.front = NULL;
 
 	*thread = (*newNode).data.tID; // Give tID back to user
 
@@ -350,6 +350,7 @@ int my_pthread_create(my_pthread_t * thread, pthread_attr_t * attr, void *(*func
 
 	if((*newNode).data.ctxt.uc_stack.ss_sp == NULL){
 		//ERROR
+		setitimer(WHICH, &res, NULL); // RESUME TIMER
 		return -1;
 	}
 
@@ -373,15 +374,19 @@ void my_pthread_exit(void * value_ptr) {
 /* wait for thread termination */
 int my_pthread_join(my_pthread_t thread, void **value_ptr) {
 	//Here, you'll free the ss_sp within uc_stack
-	disableTimer();
+	struct itimerval res = disableTimer();
 
 	tcbNode * joinable = getExitThread(thread); // Attempt to find it
+
+	if(joinable == NULL)
+		printf("Uh oh...\n");
 
 	if(joinable == NULL) {
 		(*currCtxt).data.w_tID = thread; // give it the tid of the thread its waiting on
 		(*currCtxt).data.stat = P_WAIT_T; // Set to wait_t status
 
 		my_pthread_yield(); // Release control
+		res = disableTimer();
 
 		joinable = getExitThread(thread); // For when it's rescheduled
 	}
@@ -390,7 +395,9 @@ int my_pthread_join(my_pthread_t thread, void **value_ptr) {
 	mydeallocate((*joinable).data.ctxt.uc_stack.ss_sp, __FILE__, __LINE__, LIBRARYREQ);
 	mydeallocate(joinable, __FILE__, __LINE__, LIBRARYREQ); // Free the allocated space
 
-	//dequipMask(); // Take down sigprocmask
+	removePages(thread); // Deallocate all associated pages
+
+	setitimer(WHICH, &res, NULL); // RESUME TIMER
 	return 0;
 };
 
@@ -440,6 +447,7 @@ int my_pthread_mutex_lock(my_pthread_mutex_t *mutex) {
 	} else { // Must yield and try again
 		if(currCtxt == NULL) {
 			// ERROR - can't double lock mutex (still 1 thread only - no timer/yield)
+			setitimer(WHICH, &res, NULL); // RESUME TIMER
 			return -1;
 		}
 
@@ -450,6 +458,7 @@ int my_pthread_mutex_lock(my_pthread_mutex_t *mutex) {
 
 		if((*mutex).lock == -1){
 			// ERROR - can't lock destroyed mutex
+			setitimer(WHICH, &res, NULL); // RESUME TIMER
 			return -1; // No timer change
 		}
 
