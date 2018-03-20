@@ -30,6 +30,8 @@ int numMaintain = 0;
 
 struct itimerval disableTimer(){
 	struct itimerval timer, ret;
+	timer.it_interval.tv_sec = 0;	// 0 seconds
+  timer.it_interval.tv_usec = 0; // 0 milliseconds - NO REPEAT
 	timer.it_value.tv_sec = 0; // 0 seconds
   timer.it_value.tv_usec = 0; // 0 milliseconds
 	setitimer(WHICH, &timer, &ret); // CANCEL TIMER
@@ -185,10 +187,10 @@ tcbNode * checkQueue(tcbNode ** queue){
  */
 void scheduler(int signum){
 	/* Set up sigmask */
-	sigset_t toBlock;
-	sigemptyset(&toBlock);
-	sigaddset(&toBlock, T_SIG);
-	sigprocmask(SIG_BLOCK, &toBlock, NULL);
+	//sigset_t toBlock;
+	//sigemptyset(&toBlock);
+	//sigaddset(&toBlock, T_SIG);
+	//sigprocmask(SIG_BLOCK, &toBlock, NULL);
 
 	if((*currCtxt).data.stat == P_EXIT) // TO PREVENT RUNNING TO COMPLETION ERROR
 			enqueue(&completed, currCtxt);
@@ -265,11 +267,11 @@ void scheduler(int signum){
 
 	protectAll();
 
-	setitimer(WHICH, &timer, NULL);
-
 	/* Drop sigmask */
-	sigemptyset(&toBlock);
-	sigprocmask(SIG_BLOCK, &toBlock, NULL);
+	//sigemptyset(&toBlock);
+	//sigprocmask(SIG_BLOCK, &toBlock, NULL);
+
+	setitimer(WHICH, &timer, NULL);
 
 	/* Swap contexts */
 	swapcontext(&(*curr_temp).data.ctxt, &(*currCtxt).data.ctxt);
@@ -377,9 +379,6 @@ int my_pthread_join(my_pthread_t thread, void **value_ptr) {
 	struct itimerval res = disableTimer();
 
 	tcbNode * joinable = getExitThread(thread); // Attempt to find it
-
-	if(joinable == NULL)
-		printf("Uh oh...\n");
 
 	if(joinable == NULL) {
 		(*currCtxt).data.w_tID = thread; // give it the tid of the thread its waiting on

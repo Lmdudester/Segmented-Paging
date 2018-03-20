@@ -48,7 +48,7 @@ typedef enum State_
 #define WHICH ITIMER_REAL
 #define	T_SIG SIGALRM
 
-#define STKSZE 1024*4 //#define STKSZE 1024*64
+#define STKSZE 1024*20 //#define STKSZE 1024*64
 #define MAINTAIN 10
 
 #define Q1_MSECS 25

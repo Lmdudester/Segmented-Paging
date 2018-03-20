@@ -178,7 +178,7 @@ void * t_myallocate(int size, char *  file, int line, char * memStart, int memSi
     return createMeta((void *) (*ptr).next, size, NULL);
   }
 
-  fprintf(stderr, "ERROR: Not enough space to malloc. - File: %s, Line: %d\n", file, line);
+  //fprintf(stderr, "ERROR: Not enough space to malloc. - File: %s, Line: %d\n", file, line);
   return NULL;
 }
 
