@@ -8,6 +8,10 @@
 #include <string.h>
 #include <malloc.h>
 #include <sys/mman.h>
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <fcntl.h>
+
 
 #define THREADREQ 1
 #define LIBRARYREQ 0

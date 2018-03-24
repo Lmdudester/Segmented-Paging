@@ -36,6 +36,12 @@ Test1: ./Tests/Test1.c my_pthread.a SegPage.a
 Test2: ./Tests/Test2.c my_pthread.a SegPage.a
 	$(CC) ./Tests/Test2.c -L. $(LDFLAGS) -o Test2
 
+Test3: ./Tests/Test3.c my_pthread.a SegPage.a
+	$(CC) ./Tests/Test3.c -L. $(LDFLAGS) -o Test3
+
+Test4: ./Tests/Test4.c my_pthread.a SegPage.a
+	$(CC) ./Tests/Test4.c -L. $(LDFLAGS) -o Test4
+
 practice: practice.c my_pthread.a SegPage.a
 	$(CC) practice.c -L. $(LDFLAGS) -o practice
 
@@ -68,4 +74,4 @@ Old_Test8: ./Old_Tests/Test8.c my_pthread.a
 
 # Cleanup
 clean:
-	rm -rf Old_Test[0-9]* Test[0-9]* *.o *.a *.out
+	rm -rf Old_Test[0-9]* Test[0-9]* *.o *.a *.out mem.dat
