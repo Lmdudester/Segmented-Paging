@@ -18,6 +18,7 @@
 
 #define malloc(x) myallocate(x, __FILE__, __LINE__, THREADREQ) //x is a size
 #define free(x) mydeallocate(x, __FILE__, __LINE__, THREADREQ) //x is a pointer
+#define shalloc(x) myshalloc(x, __FILE__, __LINE__) //x is a size
 
 #define ARRSIZE 1024*1024*8
 
@@ -52,9 +53,12 @@ typedef struct pageInfo {
 void printPT(int howMany);
 
 // ____myallocate____
-void * myallocate(int size, char *  file, int line, int type);
+void * myallocate(size_t size, char *  file, int line, int type);
 
 // ____mydeallocate____
 void mydeallocate(void * freeThis, char * file, int line, int type);
+
+// ____shalloc____
+void * myshalloc(size_t size, char *  file, int line);
 
 #endif /* _SEGPAGE_H_ */

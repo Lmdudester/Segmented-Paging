@@ -8,6 +8,7 @@ pageInfo * m_front = NULL;
 pageInfo * f_front = NULL;
 
 mb * libFront = NULL;
+mb * sharedFront = NULL;
 
 int swapfd;
 
@@ -223,7 +224,7 @@ void * createMeta(void * start, int newSize, mb * newNextBlock){
 /* __myallocate()__
  * - Blah...
  */
-void * t_myallocate(int size, char *  file, int line, char * memStart, int memSize, mb ** frontPtr){
+void * t_myallocate(size_t size, char *  file, int line, char * memStart, size_t memSize, mb ** frontPtr){
   if(size < 1 || size + METASIZE > memSize) {
 		//fprintf(stderr, "ERROR: Can't malloc < 0 or greater then %d byte - File: %s, Line: %d", (memSize - METASIZE), file, line);
     return NULL;
@@ -266,18 +267,20 @@ void * t_myallocate(int size, char *  file, int line, char * memStart, int memSi
   return NULL;
 }
 
-void * myallocate(int size, char *  file, int line, int type){
+void * myallocate(size_t size, char *  file, int line, int type){
   struct itimerval res = disableTimer(); // PAUSE TIMER
 
   uint tid;
   mb ** currFront;
   int i;
+  void * ret;
 
   // Has memory been created yet?
   if(mem == NULL){
     mem = (char *) memalign(PAGE_SIZE, ARRSIZE);
     if(mem == NULL){
       //ERROR
+      setitimer(WHICH, &res, NULL); // RESUME TIMER
       return NULL;
     }
 
@@ -288,6 +291,7 @@ void * myallocate(int size, char *  file, int line, int type){
     swapfd = open("mem.dat", O_CREAT | O_RDWR | O_TRUNC);
     if(swapfd == -1){
       //ERROR
+      setitimer(WHICH, &res, NULL); // RESUME TIMER
       return NULL;
     }
 
@@ -346,7 +350,9 @@ void * myallocate(int size, char *  file, int line, int type){
 
   // Who called myallocate()?
   if(type == LIBRARYREQ){ // Request from the scheduler
-    return t_myallocate(size, file, line, l_mem, LIB_PAGES*PAGE_SIZE, &libFront);
+    ret = t_myallocate(size, file, line, l_mem, LIB_PAGES*PAGE_SIZE, &libFront);
+    setitimer(WHICH, &res, NULL); // RESUME TIMER
+    return ret;
 
   } else { //Its a thread
     if(currCtxt == NULL){ // Threads have not been created yet
@@ -359,6 +365,7 @@ void * myallocate(int size, char *  file, int line, int type){
   		currCtxt = myallocate(sizeof(tcbNode), __FILE__, __LINE__, LIBRARYREQ);
   		if(currCtxt == NULL){
   			//ERROR
+        setitimer(WHICH, &res, NULL); // RESUME TIMER
   			return NULL;
   		}
   		(*currCtxt).next = NULL;
@@ -444,12 +451,13 @@ void * myallocate(int size, char *  file, int line, int type){
 
     } else { // If there are no free pages
       // ERROR
+      setitimer(WHICH, &res, NULL); // RESUME TIMER
       return NULL;
     }
   }
 
   // Try to malloc there
-  void * ret = t_myallocate(size, file, line, mem, PAGE_SIZE*(m_nPages+f_nPages), currFront);
+  ret = t_myallocate(size, file, line, mem, PAGE_SIZE*(m_nPages+f_nPages), currFront);
 
   while(ret == NULL && allow == 'y'){
     if(m_nFreePages > 0){
@@ -480,6 +488,7 @@ void * myallocate(int size, char *  file, int line, int type){
       }
     } else {
       // ERROR
+      setitimer(WHICH, &res, NULL); // RESUME TIMER
       return NULL;
     }
 
@@ -490,24 +499,40 @@ void * myallocate(int size, char *  file, int line, int type){
   return ret;
 }
 
+void * myshalloc(size_t size, char *  file, int line){
+  struct itimerval res = disableTimer(); // PAUSE TIMER
+
+  if(mem == NULL){
+    // ERROR
+    setitimer(WHICH, &res, NULL); // RESUME TIMER
+    return NULL;
+  }
+
+  void * ret = t_myallocate(size, file, line, s_mem, SHARED_PAGES*PAGE_SIZE, &sharedFront);
+
+  setitimer(WHICH, &res, NULL); // RESUME TIMER
+  return ret;
+}
 
 /* __mydeallocate()__
  * - Blah...
  */
-void t_mydeallocate(void * freeThis, char * file, int line, mb ** frontPtr){
+int t_mydeallocate(void * freeThis, char * file, int line, mb ** frontPtr, char shalloc){
 	if((*frontPtr) == NULL){
-    fprintf(stderr, "ERROR: No malloced chunks to free - File: %s, Line: %d\n", file, line);
-    return;
+    if(shalloc != 's')
+      fprintf(stderr, "ERROR: No malloced chunks to free - File: %s, Line: %d\n", file, line);
+    return -1;
 
   } else if(freeThis == NULL){
-    fprintf(stderr, "ERROR: Cannot free a NULL pointer - File: %s, Line: %d\n", file, line);
-    return;
+    if(shalloc != 's')
+      fprintf(stderr, "ERROR: Cannot free a NULL pointer - File: %s, Line: %d\n", file, line);
+    return -1;
   }
 
   // First metaBlock
   if(freeThis == (void *)((*frontPtr) + 1)){
     (*frontPtr) = (*(*frontPtr)).next;
-    return;
+    return 0;
   }
 
   // Middle + End metaBlocks
@@ -515,14 +540,15 @@ void t_mydeallocate(void * freeThis, char * file, int line, mb ** frontPtr){
   while((*ptr).next != NULL){
     if(freeThis == (void *)((*ptr).next + 1)){
       (*ptr).next = (*((*ptr).next)).next;
-      return;
+      return 0;
     }
 
     ptr = (*ptr).next;
   }
 
-  fprintf(stderr, "ERROR: Cannot free an unmalloced pointer - File: %s, Line: %d\n", file, line);
-  return;
+  if(shalloc != 's')
+    fprintf(stderr, "ERROR: Cannot free an unmalloced pointer - File: %s, Line: %d\n", file, line);
+  return -1;
 }
 
 void mydeallocate(void * freeThis, char * file, int line, int type){
@@ -534,17 +560,26 @@ void mydeallocate(void * freeThis, char * file, int line, int type){
   // Leave error if memory hasnt been created yet
   if(mem == NULL){
     fprintf(stderr, "ERROR: Can't free un-malloced space - File: %s, Line: %d", file, line);
+    setitimer(WHICH, &res, NULL); // RESUME TIMER
+    return;
+  }
+
+  // Check if it was shalloced
+  if(t_mydeallocate(freeThis, file, line, &sharedFront, 's') == 0){
+    setitimer(WHICH, &res, NULL); // RESUME TIMER
     return;
   }
 
   // Who called mydeallocate()?
   if(type == LIBRARYREQ){ // Request from the scheduler
-    t_mydeallocate(freeThis, file, line, &libFront);
+    t_mydeallocate(freeThis, file, line, &libFront, 'r');
+    setitimer(WHICH, &res, NULL); // RESUME TIMER
     return;
 
   } else { //Its a thread
     if(currCtxt == NULL){ // Threads have not been created yet
       fprintf(stderr, "ERROR: Can't free un-malloced space - File: %s, Line: %d", file, line);
+      setitimer(WHICH, &res, NULL); // RESUME TIMER
       return;
     }
 
@@ -553,7 +588,7 @@ void mydeallocate(void * freeThis, char * file, int line, int type){
   }
 
   // Deallocate the given pointer if possible
-  t_mydeallocate(freeThis, file, line, currFront);
+  t_mydeallocate(freeThis, file, line, currFront, 'r');
 
   setitimer(WHICH, &res, NULL); // RESUME TIMER
 }
