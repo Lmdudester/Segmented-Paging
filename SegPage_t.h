@@ -20,14 +20,17 @@
 #define PAGE_SIZE sysconf( _SC_PAGE_SIZE)
 
 #define TOTAL_PAGES 2048
-#define THREAD_PAGES 1024
-#define TABLE_PAGES 4
-#define LIB_PAGES 1020
+#define TOTAL_FILE_PAGES 4096
+
+#define THREAD_PAGES 1020
+#define SHARED_PAGES 4
+
+#define M_TABLE_PAGES 2
+#define F_TABLE_PAGES 8
+#define LIB_PAGES 1014
 
 #define METASIZE sizeof(struct metaBlock)
 //So far, the metadata size is 16 in factory.cs.rutgers.edu
-
-char isLib;
 
 /*Structure for Malloc*/
 typedef struct metaBlock {
@@ -40,7 +43,6 @@ typedef struct metaBlock {
 typedef struct pageInfo {
   uint tid;
   uint index;
-  mb * front;
 } pageInfo;
 
 void printPT(int howMany);

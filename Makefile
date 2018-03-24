@@ -36,6 +36,9 @@ Test1: ./Tests/Test1.c my_pthread.a SegPage.a
 Test2: ./Tests/Test2.c my_pthread.a SegPage.a
 	$(CC) ./Tests/Test2.c -L. $(LDFLAGS) -o Test2
 
+practice: practice.c my_pthread.a SegPage.a
+	$(CC) practice.c -L. $(LDFLAGS) -o practice
+
 
 # Old_Tests
 Old_Test1: ./Old_Tests/Test1.c my_pthread.a SegPage.a

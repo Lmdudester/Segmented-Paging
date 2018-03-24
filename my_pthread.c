@@ -319,6 +319,7 @@ int my_pthread_create(my_pthread_t * thread, pthread_attr_t * attr, void *(*func
 		(*currCtxt).data.ret = NULL;
 		(*currCtxt).data.w_mutex = NULL;
 		(*currCtxt).data.w_tID = 0;
+		(*currCtxt).data.front = NULL;
 
 		// Create ucontext
 		getcontext(&(*currCtxt).data.ctxt);
@@ -340,6 +341,7 @@ int my_pthread_create(my_pthread_t * thread, pthread_attr_t * attr, void *(*func
 	(*newNode).data.ret = NULL;
 	(*newNode).data.w_mutex = NULL;
 	(*newNode).data.w_tID = 0;
+	(*newNode).data.front = NULL;
 
 	*thread = (*newNode).data.tID; // Give tID back to user
 

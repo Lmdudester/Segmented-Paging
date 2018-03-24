@@ -77,6 +77,7 @@ typedef struct threadControlBlock {
   int qNum; // The number of the prev queue this thread was in
   State stat; // Current status of the thread
   void * ret; // Pointer to return value
+	mb * front; // Pointer to first allocated chunk
 } tcb;
 
 // tcb Node definition

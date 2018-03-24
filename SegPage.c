@@ -1,33 +1,46 @@
 #include "SegPage_t.h"
 
 char * mem = NULL;
-pageInfo * tableFront = NULL;
+char * s_mem = NULL;
+char * l_mem = NULL;
+
+pageInfo * m_front = NULL;
+pageInfo * f_front = NULL;
 
 mb * libFront = NULL;
 
-char isLib = 'n';
-
 /* FOR TESTING */
 void printPT(int howMany){
-  if(tableFront == NULL)
+  if(m_front == NULL)
     return;
-  pageInfo * ptr = tableFront;
+  pageInfo * ptr = m_front;
   int i = 0;
   for(i = 0; i < howMany; i++){
-    printf("i: %d - tid: %d, index - %d, front - %d\n", i, (*ptr).tid, (*ptr).index, (*ptr).front);
+    printf("i: %d - tid: %d, index - %d\n", i, (*ptr).tid, (*ptr).index);
     ptr += 1;
   }
   printf("\n");
 }
 
-void removePages(uint tid){
-  pageInfo * ptr = tableFront;
+/* HELPERS */
+
+void removePages(uint tid, pageInfo * front){
+  pageInfo * ptr = m_front;
+
   int i = 0;
   for(i = 0; i < THREAD_PAGES; i++){
     if((*ptr).tid == tid){
       (*ptr).tid = 0;
       (*ptr).index = 0;
-      (*ptr).front = NULL;
+    }
+    ptr += 1;
+  }
+
+  ptr = f_front;
+  for(i = 0; i < TOTAL_FILE_PAGES; i++){
+    if((*ptr).tid == tid){
+      (*ptr).tid = 0;
+      (*ptr).index = 0;
     }
     ptr += 1;
   }
@@ -70,9 +83,9 @@ void internalSwapper(uint in, uint out){
     mprotect(inPtr, PAGE_SIZE, PROT_NONE);  //disallow all accesses of address buffer over length pagesize
 
   // Change Page Table
-  tempPI = tableFront[out];
-  tableFront[out] = tableFront[in];
-  tableFront[in] = tempPI;
+  tempPI = m_front[out];
+  m_front[out] = m_front[in];
+  m_front[in] = tempPI;
 }
 
 static void seghandler(int sig, siginfo_t *si, void *unused) {
@@ -104,14 +117,14 @@ static void seghandler(int sig, siginfo_t *si, void *unused) {
   }
 
   // Check if we need a swap
-  if(tableFront[index].tid == tid && tableFront[index].index == index){ // If whats there is right
+  if(m_front[index].tid == tid && m_front[index].index == index){ // If whats there is right
     mprotect(mem + index*PAGE_SIZE, PAGE_SIZE, PROT_READ | PROT_WRITE); // Un-mempotect and go
     return;
 
   } else { // Find the right page and swap it in
     int swapIndex = 0;
     for(swapIndex = 0; swapIndex < THREAD_PAGES; swapIndex++){
-      if(tableFront[swapIndex].tid == tid && tableFront[swapIndex].index == index){
+      if(m_front[swapIndex].tid == tid && m_front[swapIndex].index == index){
         break;
       }
     }
@@ -135,6 +148,8 @@ void * createMeta(void * start, int newSize, mb * newNextBlock){
 
   return (void *) (placeData + 1);
 }
+
+/* MAIN FUNCTIONS */
 
 /* __myallocate()__
  * - Blah...
@@ -199,15 +214,28 @@ void * myallocate(int size, char *  file, int line, int type){
     // Memprotect memory space
     protectAll();
 
-    // Clear Page table space + set table front
-    tableFront = (pageInfo *) ((char *)(mem + PAGE_SIZE*(TOTAL_PAGES-TABLE_PAGES)));
+    // Set other mem pointers
+    s_mem = mem + (THREAD_PAGES)*PAGE_SIZE;
+    l_mem = mem + (THREAD_PAGES+SHARED_PAGES)*PAGE_SIZE;
 
-    pageInfo * temp = tableFront;
+    // Clear Memory Page table space + set table front
+    m_front = (pageInfo *) ((char *)(mem + PAGE_SIZE*(TOTAL_PAGES-M_TABLE_PAGES)));
+
+    pageInfo * temp = m_front;
     int i = 0;
     for(i = 0; i < THREAD_PAGES; i++){
       (*temp).tid = 0;
       (*temp).index = 0;
-      (*temp).front = NULL;
+      temp = temp + 1;
+    }
+
+    // Clear File Page table space + set table front
+    f_front = (pageInfo *) ((char *)(mem + PAGE_SIZE*(TOTAL_PAGES-M_TABLE_PAGES-F_TABLE_PAGES)));
+
+    temp = f_front;
+    for(i = 0; i < TOTAL_FILE_PAGES; i++){
+      (*temp).tid = 0;
+      (*temp).index = 0;
       temp = temp + 1;
     }
 
@@ -225,7 +253,7 @@ void * myallocate(int size, char *  file, int line, int type){
 
   // Who called myallocate()?
   if(type == LIBRARYREQ){ // Request from the scheduler
-    return t_myallocate(size, file, line, mem + THREAD_PAGES*PAGE_SIZE, LIB_PAGES*PAGE_SIZE, &libFront);
+    return t_myallocate(size, file, line, l_mem, LIB_PAGES*PAGE_SIZE, &libFront);
 
   } else { //Its a thread
     if(currCtxt == NULL){ // Threads have not been created yet
@@ -249,6 +277,7 @@ void * myallocate(int size, char *  file, int line, int type){
   		(*currCtxt).data.ret = NULL;
   		(*currCtxt).data.w_mutex = NULL;
   		(*currCtxt).data.w_tID = 0;
+      (*currCtxt).data.front = NULL;
 
   		// Create ucontext
   		getcontext(&(*currCtxt).data.ctxt);
@@ -256,6 +285,7 @@ void * myallocate(int size, char *  file, int line, int type){
 
     // Set variables for rest of method
     tid = (*currCtxt).data.tID;
+    currFront = &((*currCtxt).data.front);
   }
 
   // Find thread's total space + Find 1st free page + Find num of free pages + Find thread's first page
@@ -264,7 +294,7 @@ void * myallocate(int size, char *  file, int line, int type){
   pageInfo * firstEmpty = NULL;
   pageInfo * firstPage = NULL;
 
-  pageInfo * temp = tableFront;
+  pageInfo * temp = m_front;
   int i = 0;
   for(i = 0; i < THREAD_PAGES; i++){
     if((*temp).tid == tid) {
@@ -297,16 +327,12 @@ void * myallocate(int size, char *  file, int line, int type){
     firstPage = firstEmpty;
   }
 
-  // Swap in first page and set up front pointer
-  internalSwapper((firstPage - tableFront),0);
-  currFront = &((*tableFront).front);
-
   // Try to malloc there
   void * ret = t_myallocate(size, file, line, mem, PAGE_SIZE*numPages, currFront);
 
   while(ret == NULL && allow == 'y'){
     // Look for next free page
-    temp = tableFront;
+    temp = m_front;
     for(i = 0; i < THREAD_PAGES; i++){
       if((*temp).tid == 0){
         (*temp).tid = tid;
@@ -388,26 +414,8 @@ void mydeallocate(void * freeThis, char * file, int line, int type){
     }
 
     tid = (*currCtxt).data.tID;
+    currFront = &((*currCtxt).data.front);
   }
-
-  // Find thread's first page
-  pageInfo * temp = tableFront;
-  int i = 0;
-  for(i = 0; i < THREAD_PAGES; i++){
-    if((*temp).tid == tid && (*temp).index == 0)
-      break;
-
-    temp = temp + 1;
-  }
-
-  if(i == THREAD_PAGES){ // Doesn't have any pages
-    fprintf(stderr, "ERROR: Can't free un-malloced space - File: %s, Line: %d", file, line);
-    return;
-  }
-
-  // Swap in first page and set up front pointer
-  internalSwapper(i,0);
-  currFront = &((*tableFront).front);
 
   // Deallocate the given pointer if possible
   t_mydeallocate(freeThis, file, line, currFront);
