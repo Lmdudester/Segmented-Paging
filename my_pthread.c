@@ -28,6 +28,13 @@ int numMaintain = 0;
 
 /* HELPER FUNCTIONS */
 
+/* __disableTimer()__
+ *	Disables the current timer and returns its value.
+ *	Args:
+ *		- N/A
+ *	Returns:
+ *		- struct itimerval storing the current time of the disabled timer
+ */
 struct itimerval disableTimer(){
 	struct itimerval timer, ret;
 	timer.it_interval.tv_sec = 0;	// 0 seconds
@@ -80,6 +87,15 @@ tcbNode * dequeue(tcbNode ** queue){
 	return ret;
 }
 
+/* __getExitThread()__
+ *	Locates and removes a thread from the exited list and returns a pointer to it
+ *	Args:
+ *		- my_pthread_t id - tid of the node to locate
+ *	Returns:
+ *		- tcbNode * - a pointer to the thread
+ *		- NULL - if no nodes exist
+ * NOTE: To meet NULL requirement of enqueue, returned node has a next of NULL
+ */
 tcbNode * getExitThread(my_pthread_t id){
 		tcbNode * ptr = completed;
 		tcbNode * prv = NULL;

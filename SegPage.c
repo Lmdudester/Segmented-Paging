@@ -1,5 +1,11 @@
+// File:	SegPage.c
+// Authors: Liam Davies, Kevin Lee, Brian Ellsworth
+// username of iLab: lmd312, kjl156, bje40
+// iLab Server: factory.cs.rutgers.edu
+
 #include "SegPage_t.h"
 
+/* Pointers to the start of each section of memory */
 char * mem = NULL;
 char * s_mem = NULL;
 char * l_mem = NULL;
@@ -7,12 +13,23 @@ char * l_mem = NULL;
 pageInfo * m_front = NULL;
 pageInfo * f_front = NULL;
 
+/* Malloc "front" pointers for library and shalloc requests */
 mb * libFront = NULL;
 mb * sharedFront = NULL;
 
+/* File descriptor for the swapfile */
 int swapfd;
 
-/* FOR TESTING */
+
+/* TESTING-ONLY FUNCTIONS*/
+
+/* __printPT()__
+ *	Prints out the first n entries of the memory page table.
+ *	Args:
+ *		- int howMany - the number of entries to print
+ *	Returns:
+ *		- N/A
+ */
 void printPT(int howMany){
   if(m_front == NULL)
     return;
@@ -25,8 +42,16 @@ void printPT(int howMany){
   printf("\n");
 }
 
-/* HELPERS */
 
+/* HELPER METHODS */
+
+/* __removePages()__
+ *	Clears all page table metadata for a given tid
+ *	Args:
+ *		- uint tid - the tid to delete all pages of
+ *	Returns:
+ *		- N/A
+ */
 void removePages(uint tid){
   pageInfo * ptr = m_front;
 
@@ -49,6 +74,13 @@ void removePages(uint tid){
   }
 }
 
+/* __protectAll()__
+ *	Calls mprotect on all thread pages
+ *	Args:
+ *		- N/A
+ *	Returns:
+ *		- N/A
+ */
 void protectAll(){
   // Memprotect memory space - FOR THREAD PAGES ONLY
   char * memProt = mem;
@@ -59,6 +91,14 @@ void protectAll(){
   }
 }
 
+/* __internalSwapper()__
+ *	Swaps two pages and un-mprotects in. (MEM->MEM only)
+ *	Args:
+ *		- uint in - the index of the page being swapped in
+ *    - uint out - the index of the page being swapped out
+ *	Returns:
+ *		- N/A
+ */
 void internalSwapper(uint in, uint out){
   if(in >= THREAD_PAGES || out >= THREAD_PAGES){
     // ERROR
@@ -91,6 +131,14 @@ void internalSwapper(uint in, uint out){
   m_front[in] = tempPI;
 }
 
+/* __memToFile()__
+ *	Swaps two pages and un-mprotects in. (MEM->FILE only)
+ *	Args:
+ *		- uint in - the index of the page being swapped in
+ *    - uint out - the index of the page being swapped out
+ *	Returns:
+ *		- N/A
+ */
 void memToFile(uint in, uint out){
   if(in >= THREAD_PAGES || out >= TOTAL_FILE_PAGES){
     // ERROR
@@ -142,6 +190,36 @@ void memToFile(uint in, uint out){
   m_front[in] = tempPI;
 }
 
+/* __createMeta()__
+ *	Given the info needed, populates the given space with metadata and returns
+ *    a pointer to the actual chunk of memory directly after it
+ *	Args:
+ *		- void * start - pointer to where the metadata is going
+ *    - int newSize - size of the allocated chunk
+ *    - mb * newNextBlock - pointer to the next metadata block
+ *	Returns:
+ *		- void * - a pointer to the beginning of the associated memory
+ */
+void * createMeta(void * start, int newSize, mb * newNextBlock){
+  mb * placeData = (mb *) start;
+  (*placeData).size = newSize;
+  (*placeData).next = newNextBlock;
+
+  return (void *) (placeData + 1);
+}
+
+
+/* SEGMENTATION FAULT HANDLER */
+
+/* __seghandler()__
+ *	Checks if its a real segfault or a page swap and swaps pages if needed
+ *	Args:
+ *		- int sig - the signal number
+ *    - siginfo_t *si - used to access the address of the segfault
+ *    - void *unused - N/A
+ *	Returns:
+ *		- N/A
+ */
 static void seghandler(int sig, siginfo_t *si, void *unused) {
   struct itimerval res = disableTimer(); // PAUSE TIMER
   //printf("Got SIGSEGV at address: 0x%lx\n",(long) si->si_addr);
@@ -208,21 +286,20 @@ static void seghandler(int sig, siginfo_t *si, void *unused) {
   }
 }
 
-/*  __createMeta()__
- *  - Fills in the metadata before a malloced chunk
- */
-void * createMeta(void * start, int newSize, mb * newNextBlock){
-  mb * placeData = (mb *) start;
-  (*placeData).size = newSize;
-  (*placeData).next = newNextBlock;
-
-  return (void *) (placeData + 1);
-}
 
 /* MAIN FUNCTIONS */
 
-/* __myallocate()__
- * - Blah...
+/* __t_myallocate()__
+ *	Attempts to allocate space in a given region, generating appropriate metadata
+ *	Args:
+ *		- size_t size - the size of the memory space that is being requested
+ *    - char *  file/int line - directives for error displaying
+ *    - char * memStart - pointer to the start of the space in which malloc is being called
+ *    - size_t memSize - the size of the memory space in which we have to malloc
+ *    - mb ** frontPtr - pointer to the pointer to the front of the metadata linked list
+ *	Returns:
+ *		- void * - a pointer to the beginning of the associated memory
+ *    - NULL - if it cannot be done
  */
 void * t_myallocate(size_t size, char *  file, int line, char * memStart, size_t memSize, mb ** frontPtr){
   if(size < 1 || size + METASIZE > memSize) {
@@ -267,6 +344,16 @@ void * t_myallocate(size_t size, char *  file, int line, char * memStart, size_t
   return NULL;
 }
 
+/* __myallocate()__
+ *	Deals with all of the paging aspects so t_myallocate can assume contiguous space
+ *	Args:
+ *		- size_t size - the size of the memory space that is being requested
+ *    - char *  file/int line - directives for error displaying
+ *    - int type - THREADREQ/LIBRARYREQ
+ *	Returns:
+ *		- void * - a pointer to the beginning of the associated memory
+ *    - NULL - if it cannot be done
+ */
 void * myallocate(size_t size, char *  file, int line, int type){
   struct itimerval res = disableTimer(); // PAUSE TIMER
 
@@ -499,6 +586,15 @@ void * myallocate(size_t size, char *  file, int line, int type){
   return ret;
 }
 
+/* __myshalloc()__
+ *	Attempts to obtain space in a shared region so that multiple threads may access it
+ *	Args:
+ *		- size_t size - the size of the memory space that is being requested
+ *    - char *  file/int line - directives for error displaying
+ *	Returns:
+ *		- void * - a pointer to the beginning of the associated memory
+ *    - NULL - if it cannot be done
+ */
 void * myshalloc(size_t size, char *  file, int line){
   struct itimerval res = disableTimer(); // PAUSE TIMER
 
@@ -514,8 +610,15 @@ void * myshalloc(size_t size, char *  file, int line){
   return ret;
 }
 
-/* __mydeallocate()__
- * - Blah...
+/* __t_mydeallocate()__
+ *	Attempts to free the metadata of a given mallcoed pointer
+ *	Args:
+ *		- void * freeThis - the pointer to the memory to free
+ *    - char *  file/int line - directives for error displaying
+ *    - mb ** frontPtr - pointer to the pointer to the front of the metadata linked list
+ *    - char shalloc - set to 's' when checking shalloc memory so no errors are printed
+ *	Returns:
+ *		- int - 0 to indicate success, -1 for failure
  */
 int t_mydeallocate(void * freeThis, char * file, int line, mb ** frontPtr, char shalloc){
 	if((*frontPtr) == NULL){
@@ -551,6 +654,15 @@ int t_mydeallocate(void * freeThis, char * file, int line, mb ** frontPtr, char 
   return -1;
 }
 
+/* __mydeallocate()__
+ *	Deals with all of the paging aspects so t_mydeallocate can assume contiguous space
+ *	Args:
+ *		- void * freeThis - the pointer to the memory to free
+ *    - char *  file/int line - directives for error displaying
+ *    - int type - THREADREQ/LIBRARYREQ
+ *	Returns:
+ *		- N/A
+ */
 void mydeallocate(void * freeThis, char * file, int line, int type){
   struct itimerval res = disableTimer(); // PAUSE TIMER
 

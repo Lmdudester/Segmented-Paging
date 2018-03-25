@@ -57,11 +57,6 @@ typedef enum State_
 
 typedef uint my_pthread_t;
 
-typedef union voidToint {
-   int i;
-   void * ptr;
-} vToi;
-
 // mutex struct definition
 typedef struct my_pthread_mutex_t {
 	int lock; // 0 - unlocked, 1 - locked, -1 - destroyed
@@ -103,12 +98,17 @@ my_pthread_t idCount;
 // For Maintenance Cycle decisions
 int numMaintain;
 
-/* Function Declarations: */
-
+// Function Declarations:
 /* HELPER FUNCTIONS */
+
+/* Stops the timer so that it won't interrupt the given context */
 struct itimerval disableTimer();
 
+/* Swaps contexts when called by either a signal or yield */
 void scheduler(int signum);
+
+
+/* MAIN FUNCTIONS */
 
 /* create a new thread */
 int my_pthread_create(my_pthread_t * thread, pthread_attr_t * attr, void *(*function)(void*), void * arg);
