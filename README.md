@@ -155,6 +155,7 @@ typedef struct pageInfo {
 
 ## Test3
 * **NOTE:** Takes a LONG time to complete, lots of thrashing and I/O.
+  * Can take anywhere between 30 seconds to a few minutes depending on the ilab machine's workload
 
 * ### Purpose
   * Used to stress test page swapping in memory and the swapfile
